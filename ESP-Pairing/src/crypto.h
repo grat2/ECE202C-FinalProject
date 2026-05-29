@@ -10,6 +10,10 @@
  *
  * Only one key pair is active at a time.  Calling crypto_generate_keypair()
  * again discards the previous private key and starts fresh.
+ *
+ * A fourth operation, crypto_derive_fingerprint(), produces a short out-of-band
+ * verification code from the shared secret.  Both devices display this code so
+ * the user can detect a man-in-the-middle substitution before committing.
  */
 
 #pragma once
@@ -56,3 +60,17 @@ bool crypto_compute_shared_secret(const uint8_t their_pub[64], uint8_t secret_ou
  * without any additional communication.
  */
 void crypto_derive_keys(const uint8_t secret[32], uint8_t pmk_out[16], uint8_t lmk_out[16]);
+
+/*
+ * crypto_derive_fingerprint — derive a short out-of-band verification code.
+ *
+ * Computes SHA-256("FP" || secret) and writes the first 3 bytes into fp_out.
+ * Displaying these 3 bytes as 6 hex digits gives a 1-in-16 million false-match
+ * probability.  The "FP" prefix domain-separates this hash from the key
+ * derivation in crypto_derive_keys() so the two outputs are independent.
+ *
+ * If an adversary substitutes its own public key during the handshake, each
+ * victim derives a different shared secret (one with the adversary rather than
+ * with each other), causing their fingerprints to diverge.
+ */
+void crypto_derive_fingerprint(const uint8_t secret[32], uint8_t fp_out[3]);

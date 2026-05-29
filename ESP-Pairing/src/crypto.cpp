@@ -187,6 +187,18 @@ fail:
     return false;
 }
 
+void crypto_derive_fingerprint(const uint8_t secret[32], uint8_t fp_out[3]) {
+    // Prefix "FP" (0x46, 0x50) before the secret so this hash is domain-separated
+    // from the PMK/LMK derivation hash.  Without separation, an attacker who knew
+    // the fingerprint could potentially gain information about the keys.
+    uint8_t input[34];
+    input[0] = 0x46; input[1] = 0x50;  // 'F', 'P'
+    memcpy(input + 2, secret, 32);
+    uint8_t hash[32];
+    mbedtls_sha256(input, 34, hash, 0);
+    memcpy(fp_out, hash, 3);
+}
+
 void crypto_derive_keys(const uint8_t secret[32], uint8_t pmk_out[16], uint8_t lmk_out[16]) {
     // Hash the 32-byte ECDH secret with SHA-256 to produce 32 bytes of
     // key material.  Splitting the digest gives two independent 128-bit keys

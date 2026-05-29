@@ -7,6 +7,8 @@
  *
  * Serial commands (57600 baud):
  *   pair        — enter pairing mode (generate key pair, broadcast request)
+ *   confirm     — accept a pending pairing after verifying the fingerprint matches
+ *   cancel      — reject a pending pairing (fingerprint mismatch or suspicion)
  *   list        — print all peers saved in NVS
  *   send <msg>  — send an encrypted message to all registered peers
  *   clear       — erase all peer records from NVS
@@ -60,6 +62,19 @@ static void handle_command(const char *cmd) {
         // public key and waits (non-blocking) for a response.
         pairing_start();
 
+    } else if (strcmp(cmd, "confirm") == 0) {
+        // Finalise the pending pairing.  The user should only type this after
+        // visually confirming that the fingerprint printed here matches the one
+        // printed on the peer's serial console.  If a MITM intercepted the
+        // handshake the fingerprints will differ and "cancel" should be used.
+        pairing_confirm();
+
+    } else if (strcmp(cmd, "cancel") == 0) {
+        // Abort the pending pairing.  Use this if the fingerprints do not match
+        // (indicating a man-in-the-middle attack) or if pairing is no longer
+        // wanted.  All staged key material is securely zeroed.
+        pairing_cancel();
+
     } else if (strcmp(cmd, "list") == 0) {
         // Iterate NVS and print every saved peer's MAC address.
         Serial.println("[list] Saved peers:");
@@ -112,6 +127,8 @@ static void handle_command(const char *cmd) {
     } else if (strcmp(cmd, "help") == 0) {
         Serial.println("Commands:");
         Serial.println("  pair        - Start pairing mode");
+        Serial.println("  confirm     - Accept pending pairing (fingerprints match)");
+        Serial.println("  cancel      - Reject pending pairing (fingerprints differ)");
         Serial.println("  list        - List saved peers");
         Serial.println("  send <msg>  - Send encrypted message to all peers");
         Serial.println("  clear       - Clear all saved peers");
