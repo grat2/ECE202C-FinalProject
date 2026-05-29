@@ -5,7 +5,7 @@
  * pairing modules, and provides a simple line-oriented serial command interface
  * for triggering pairing and testing encrypted communication.
  *
- * Serial commands (57600 baud):
+ * Serial commands (115200 baud):
  *   pair        — enter pairing mode (generate key pair, broadcast request)
  *   list        — print all peers saved in NVS
  *   send <msg>  — send an encrypted message to all registered peers

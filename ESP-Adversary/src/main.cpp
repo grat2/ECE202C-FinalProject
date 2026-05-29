@@ -3,7 +3,7 @@
  *
  * Entry point and serial command interface for the ESP-NOW MITM adversary.
  *
- * Serial commands (115200 baud):
+ * Serial commands (57600 baud):
  *   attack on   — enable active interception (respond to pairing broadcasts)
  *   attack off  — disable interception (passive sniff only)
  *   relay on    — enable frame relay between paired victims
@@ -105,7 +105,7 @@ static void handle_command(const char *cmd) {
 }
 
 void setup() {
-    Serial.begin(115200);
+    Serial.begin(57600);
     delay(500);
     Serial.println("\n=== ESP-NOW MITM Adversary ===");
 
