@@ -113,6 +113,27 @@ void nvs_load_all_peers(peer_load_cb_t cb) {
     nvs_release_iterator(it);
 }
 
+bool nvs_save_pmk(const uint8_t pmk[16]) {
+    if (!s_open) return false;
+    // Store the PMK under a fixed key so it can be restored on the next boot.
+    // Without restoring the PMK, re-registered peers will use the wrong
+    // decryption key and all encrypted communication will fail after a reboot.
+    esp_err_t err = nvs_set_blob(s_handle, "pmk", pmk, 16);
+    if (err != ESP_OK) {
+        Serial.printf("[nvs] save_pmk failed: %d\n", err);
+        return false;
+    }
+    nvs_commit(s_handle);
+    return true;
+}
+
+bool nvs_load_pmk(uint8_t pmk_out[16]) {
+    if (!s_open) return false;
+    size_t len = 16;
+    esp_err_t err = nvs_get_blob(s_handle, "pmk", pmk_out, &len);
+    return err == ESP_OK && len == 16;
+}
+
 bool nvs_clear_all() {
     if (!s_open) return false;
     // nvs_erase_all removes every key in the open namespace, then we commit

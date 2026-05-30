@@ -35,6 +35,14 @@ bool nvs_save_peer(const uint8_t mac[6], const uint8_t lmk[16]);
 // Typically called at boot to restore the ESP-NOW peer table from flash.
 void nvs_load_all_peers(peer_load_cb_t cb);
 
+// nvs_save_pmk — persist the global ESP-NOW Primary Master Key to flash.
+// Call whenever a new PMK is derived so it can be restored after a reboot.
+bool nvs_save_pmk(const uint8_t pmk[16]);
+
+// nvs_load_pmk — read the previously saved PMK into pmk_out.
+// Returns false if no PMK has been saved yet (first boot after flashing).
+bool nvs_load_pmk(uint8_t pmk_out[16]);
+
 // nvs_clear_all — erase all records from the NVS namespace and commit.
 // Used by the "clear" serial command to unpair all devices.
 bool nvs_clear_all();

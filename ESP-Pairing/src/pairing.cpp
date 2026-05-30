@@ -37,8 +37,10 @@ static uint8_t         s_own_mac[6];
 // Staged key material — set by stage_pairing(), consumed by commit_pairing().
 // Zeroed immediately if the user cancels or the timeout fires.
 static uint8_t s_pending_mac[6];
-static uint8_t s_pending_pmk[16];
 static uint8_t s_pending_lmk[16];
+// Note: the ECDH-derived PMK is intentionally not staged here.  The device PMK
+// is generated once at first boot (in main.cpp) and never changed, so pairing
+// only needs to install the per-peer LMK.
 
 static const uint8_t BROADCAST_MAC[6] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
 
@@ -58,7 +60,11 @@ static void stage_pairing(const uint8_t peer_mac[6], const uint8_t their_pub[ECD
         return;
     }
 
-    crypto_derive_keys(secret, s_pending_pmk, s_pending_lmk);
+    // Derive keys from the shared secret; only the LMK is staged for commit.
+    // The PMK output is discarded — the device PMK is fixed at boot and must
+    // not be overwritten here, which was the root cause of multi-peer breakage.
+    uint8_t unused_pmk[16];
+    crypto_derive_keys(secret, unused_pmk, s_pending_lmk);
     memcpy(s_pending_mac, peer_mac, 6);
 
     // Derive a 3-byte fingerprint from the shared secret using a separate
@@ -77,17 +83,14 @@ static void stage_pairing(const uint8_t peer_mac[6], const uint8_t their_pub[ECD
 }
 
 /*
- * commit_pairing — install the staged keys and register the peer.
+ * commit_pairing — register the staged peer and persist it to NVS.
  *
  * Only called after the user types "confirm" via pairing_confirm().
- * Installs the global PMK, registers the peer with its per-peer LMK, and
- * persists the record to NVS for survival across reboots.
+ * The device PMK is NOT set here — it is generated once at first boot in
+ * main.cpp and persisted to NVS, so it is already active when this runs.
+ * Only the per-peer LMK (derived via ECDH) is installed here.
  */
 static void commit_pairing() {
-    if (!espnow_set_pmk(s_pending_pmk)) {
-        Serial.println("[pairing] failed to set PMK");
-    }
-
     if (!espnow_add_peer(s_pending_mac, s_pending_lmk)) {
         Serial.println("[pairing] failed to add peer");
         s_state = PAIRING_IDLE;
@@ -157,7 +160,6 @@ bool pairing_cancel() {
     }
     // Zero out staged key material so it cannot be accidentally committed later.
     memset(s_pending_mac, 0, sizeof(s_pending_mac));
-    memset(s_pending_pmk, 0, sizeof(s_pending_pmk));
     memset(s_pending_lmk, 0, sizeof(s_pending_lmk));
     s_state = PAIRING_IDLE;
     Serial.println("[pairing] Pairing cancelled");
@@ -238,7 +240,6 @@ void pairing_tick() {
         if (millis() - s_start_ms > PAIRING_TIMEOUT_MS) {
             if (s_state == PAIRING_WAIT_USER_CONFIRM) {
                 // Zero out staged key material before discarding it.
-                memset(s_pending_pmk, 0, sizeof(s_pending_pmk));
                 memset(s_pending_lmk, 0, sizeof(s_pending_lmk));
                 Serial.println("[pairing] Confirmation timeout — pairing aborted");
             } else {

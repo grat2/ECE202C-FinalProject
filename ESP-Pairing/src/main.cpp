@@ -169,6 +169,25 @@ void setup() {
 
     pairing_init();
 
+    // Set the device PMK before re-registering peers.  The PMK is generated
+    // once on first boot and never changed, so adding new peers never
+    // overwrites the key used by existing peers (mitigation for PMK overwrite
+    // vulnerability).  Without setting the PMK before espnow_add_peer(), the
+    // hardware uses the wrong key and cannot decrypt incoming frames.
+    uint8_t pmk[16];
+    if (!nvs_load_pmk(pmk)) {
+        // First boot: generate a random per-device PMK and persist it.
+        for (int i = 0; i < 4; i++) {
+            uint32_t r = esp_random();
+            memcpy(pmk + i * 4, &r, 4);
+        }
+        nvs_save_pmk(pmk);
+        Serial.println("[boot] Generated new device PMK");
+    } else {
+        Serial.println("[boot] PMK restored from NVS");
+    }
+    espnow_set_pmk(pmk);
+
     // Reload saved peers from NVS so previously paired devices are immediately
     // usable without requiring re-pairing after every reboot.
     nvs_load_all_peers(on_peer_load);
